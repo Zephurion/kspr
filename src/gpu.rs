@@ -24,6 +24,70 @@ use crate::kdf::KM_U32S;
 use crate::keyparser::Cipher;
 
 // ─────────────────────────────────────────────────────────────────────────────
+// AES S-box constant (256 values for GPU storage buffer)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const SBOX: [u32; 256] = [
+    // 0x00-0x0f
+    0x63u32, 0x7cu32, 0x77u32, 0x7bu32, 0xf2u32, 0x6bu32, 0x6fu32, 0xc5u32,
+    0x30u32, 0x01u32, 0x67u32, 0x2bu32, 0xfeu32, 0xd7u32, 0xabu32, 0x76u32,
+    // 0x10-0x1f
+    0xcau32, 0x82u32, 0xc9u32, 0x7du32, 0xfau32, 0x59u32, 0x47u32, 0xf0u32,
+    0xadu32, 0xd4u32, 0xa2u32, 0xafu32, 0x9cu32, 0xa4u32, 0x72u32, 0xc0u32,
+    // 0x20-0x2f
+    0xb7u32, 0xfdu32, 0x93u32, 0x26u32, 0x36u32, 0x3fu32, 0xf7u32, 0xccu32,
+    0x34u32, 0xa5u32, 0xe5u32, 0xf1u32, 0x71u32, 0xd8u32, 0x31u32, 0x15u32,
+    // 0x30-0x3f
+    0x04u32, 0xc7u32, 0x23u32, 0xc3u32, 0x18u32, 0x96u32, 0x05u32, 0x9au32,
+    0x07u32, 0x12u32, 0x80u32, 0xe2u32, 0xebu32, 0x27u32, 0xb2u32, 0x75u32,
+    // 0x40-0x4f
+    0x09u32, 0x83u32, 0x2cu32, 0x1au32, 0x1bu32, 0x6eu32, 0x5au32, 0xa0u32,
+    0x52u32, 0x3bu32, 0xd6u32, 0xb3u32, 0x29u32, 0xe3u32, 0x2fu32, 0x84u32,
+    // 0x50-0x5f
+    0x53u32, 0xd1u32, 0x00u32, 0xedu32, 0x20u32, 0xfcu32, 0xb1u32, 0x5bu32,
+    0x6au32, 0xcbu32, 0xbeu32, 0x39u32, 0x4au32, 0x4cu32, 0x58u32, 0xcfu32,
+    // 0x60-0x6f
+    0xd0u32, 0xefu32, 0xaau32, 0xfbu32, 0x43u32, 0x4du32, 0x33u32, 0x85u32,
+    0x45u32, 0xf9u32, 0x02u32, 0x7fu32, 0x50u32, 0x3cu32, 0x9fu32, 0xa8u32,
+    // 0x70-0x7f
+    0x51u32, 0xa3u32, 0x40u32, 0x8fu32, 0x92u32, 0x9du32, 0x38u32, 0xf5u32,
+    0xbcu32, 0xb6u32, 0xdau32, 0x21u32, 0x10u32, 0xffu32, 0xf3u32, 0xd2u32,
+    // 0x80-0x8f
+    0xcdu32, 0x0cu32, 0x13u32, 0xecu32, 0x5fu32, 0x97u32, 0x44u32, 0x17u32,
+    0xc4u32, 0xa7u32, 0x7eu32, 0x3du32, 0x64u32, 0x5du32, 0x19u32, 0x73u32,
+    // 0x90-0x9f
+    0x60u32, 0x81u32, 0x4fu32, 0xdcu32, 0x22u32, 0x2au32, 0x90u32, 0x88u32,
+    0x46u32, 0xeeu32, 0xb8u32, 0x14u32, 0xdeu32, 0x5eu32, 0x0bu32, 0xdbu32,
+    // 0xa0-0xaf
+    0xe0u32, 0x32u32, 0x3au32, 0x0au32, 0x49u32, 0x06u32, 0x24u32, 0x5cu32,
+    0xc2u32, 0xd3u32, 0xacu32, 0x62u32, 0x91u32, 0x95u32, 0xe4u32, 0x79u32,
+    // 0xb0-0xbf
+    0xe7u32, 0xc8u32, 0x37u32, 0x6du32, 0x8du32, 0xd5u32, 0x4eu32, 0xa9u32,
+    0x6cu32, 0x56u32, 0xf4u32, 0xeau32, 0x65u32, 0x7au32, 0xaeu32, 0x08u32,
+    // 0xc0-0xcf
+    0xbau32, 0x78u32, 0x25u32, 0x2eu32, 0x1cu32, 0xa6u32, 0xb4u32, 0xc6u32,
+    0xe8u32, 0xddu32, 0x74u32, 0x1fu32, 0x4bu32, 0xbdu32, 0x8bu32, 0x8au32,
+    // 0xd0-0xdf
+    0x70u32, 0x3eu32, 0xb5u32, 0x66u32, 0x48u32, 0x03u32, 0xf6u32, 0x0eu32,
+    0x61u32, 0x35u32, 0x57u32, 0xb9u32, 0x86u32, 0xc1u32, 0x1du32, 0x9eu32,
+    // 0xe0-0xef
+    0xe1u32, 0xf8u32, 0x98u32, 0x11u32, 0x69u32, 0xd9u32, 0x8eu32, 0x94u32,
+    0x9bu32, 0x1eu32, 0x87u32, 0xe9u32, 0xceu32, 0x55u32, 0x28u32, 0xdfu32,
+    // 0xf0-0xff
+    0x8cu32, 0xa1u32, 0x89u32, 0x0du32, 0xbfu32, 0xe6u32, 0x42u32, 0x68u32,
+    0x41u32, 0x99u32, 0x2du32, 0x0fu32, 0xb0u32, 0x54u32, 0xbbu32, 0x16u32,
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AES-256 Rcon constant (7 values for GPU storage buffer)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const RCON: [u32; 7] = [
+    0x01000000u32, 0x02000000u32, 0x04000000u32, 0x08000000u32,
+    0x10000000u32, 0x20000000u32, 0x40000000u32,
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Uniform pushed to the GPU per batch
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -51,6 +115,8 @@ pub struct GpuContext {
     pub queue:        wgpu::Queue,
     pipeline:         wgpu::ComputePipeline,
     bgl:              wgpu::BindGroupLayout,
+    sbox_buffer:      wgpu::Buffer,
+    rcon_buffer:      wgpu::Buffer,
     pub adapter_name: String,
     pub adapter_type: String,   // "DiscreteGpu" / "IntegratedGpu" / "Cpu" …
 }
@@ -101,6 +167,8 @@ impl GpuContext {
         //   0 → key_material (storage read)
         //   1 → params       (uniform)
         //   2 → results      (storage read_write)
+        //   3 → sbox         (storage read)
+        //   4 → rcon         (storage read)
         let bgl = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label:   Some("crack_bgl"),
             entries: &[
@@ -137,6 +205,28 @@ impl GpuContext {
                     },
                     count: None,
                 },
+                // sbox (AES S-box lookup table)
+                wgpu::BindGroupLayoutEntry {
+                    binding:    3,
+                    visibility: wgpu::ShaderStages::COMPUTE,
+                    ty: wgpu::BindingType::Buffer {
+                        ty:                 wgpu::BufferBindingType::Storage { read_only: true },
+                        has_dynamic_offset: false,
+                        min_binding_size:   None,
+                    },
+                    count: None,
+                },
+                // rcon (AES-256 Rcon expansion values)
+                wgpu::BindGroupLayoutEntry {
+                    binding:    4,
+                    visibility: wgpu::ShaderStages::COMPUTE,
+                    ty: wgpu::BindingType::Buffer {
+                        ty:                 wgpu::BufferBindingType::Storage { read_only: true },
+                        has_dynamic_offset: false,
+                        min_binding_size:   None,
+                    },
+                    count: None,
+                },
             ],
         });
 
@@ -155,7 +245,21 @@ impl GpuContext {
                 entry_point: "main",
             });
 
-        Ok(Self { device, queue, pipeline, bgl, adapter_name, adapter_type })
+        // Create SBOX storage buffer (256 × u32 = 1024 bytes, read-only)
+        let sbox_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label:    Some("sbox"),
+            contents: bytemuck::cast_slice(&SBOX),
+            usage:    wgpu::BufferUsages::STORAGE,
+        });
+
+        // Create RCON storage buffer (7 × u32 = 28 bytes, read-only)
+        let rcon_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label:    Some("rcon"),
+            contents: bytemuck::cast_slice(&RCON),
+            usage:    wgpu::BufferUsages::STORAGE,
+        });
+
+        Ok(Self { device, queue, pipeline, bgl, sbox_buffer, rcon_buffer, adapter_name, adapter_type })
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -238,6 +342,8 @@ impl GpuContext {
                 wgpu::BindGroupEntry { binding: 0, resource: km_buf.as_entire_binding() },
                 wgpu::BindGroupEntry { binding: 1, resource: params_buf.as_entire_binding() },
                 wgpu::BindGroupEntry { binding: 2, resource: results_buf.as_entire_binding() },
+                wgpu::BindGroupEntry { binding: 3, resource: self.sbox_buffer.as_entire_binding() },
+                wgpu::BindGroupEntry { binding: 4, resource: self.rcon_buffer.as_entire_binding() },
             ],
         });
 

@@ -322,8 +322,8 @@ fn main() -> Result<()> {
         println!("  │  {}", passphrase);
         println!("  └────────────────────────────────────────────────────┘");
         println!();
-        println!("  Connect to your eBPF VM:");
-        println!("    ssh -i {} <user>@<vm-ip>", args.key);
+        println!("  Congrats!, your passphrase has been recovered. You can now use it to decrypt your SSH key and regain access to your servers:");
+        println!("    ssh-keygen -p -f {} -N \"{}\"", args.key, passphrase);
         println!();
         return Ok(());
     }
