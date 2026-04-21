@@ -1,0 +1,57 @@
+[package]
+name        = "kspr"
+version     = "2.0.0"
+edition     = "2021"
+description = "GPU-accelerated SSH key passphrase finder (RSA · ED25519 · ECDSA)"
+
+[[bin]]
+name = "kspr"
+path = "src/main.rs"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# All = pins target the last release compatible with Rust 1.75
+# (Ubuntu 24 LTS ships rustc 1.75 via apt).
+# On Rust 1.82+ you can drop every "=" and use normal "^" ranges instead.
+# ─────────────────────────────────────────────────────────────────────────────
+[dependencies]
+
+# CLI — 4.6.x bumped MSRV to 1.85; 4.5.23 is the last 1.74-compatible release
+clap = { version = "=4.5.23", features = ["derive", "color"] }
+
+# GPU — wgpu 0.19 is the last series before the 0.20 API rename
+wgpu            = "=0.19.4"
+pollster        = "=0.3.0"
+bytemuck        = { version = "=1.14.0", features = ["derive"] }
+futures-channel = "=0.3.31"
+
+# CPU parallelism — rayon 1.10.0 pulls rayon-core 1.12.x (MSRV 1.63)
+rayon = "=1.10.0"
+
+# RustCrypto — all share the cipher = 0.4 trait boundary
+bcrypt-pbkdf = "=0.10.0"
+aes          = "=0.8.4"
+ctr          = "=0.9.2"
+chacha20     = "=0.9.1"
+cipher       = "=0.4.4"
+
+# Progress bar
+indicatif = "=0.17.8"
+
+# Utilities
+base64 = "=0.21.7"
+anyhow = "=1.0.86"
+zeroize = { version = "=1.7.0", features = ["zeroize_derive"] }
+
+# Forced transitive pins
+# indexmap 2.14 requires edition2024 (Rust 1.85)
+indexmap   = "=2.11.0"
+# rayon-core 1.13 requires Rust 1.80
+rayon-core = "=1.12.1"
+# hashbrown 0.15 requires Rust 1.82
+hashbrown  = "=0.14.5"
+
+[profile.release]
+opt-level     = 3
+lto           = "thin"
+codegen-units = 1
+strip         = true
