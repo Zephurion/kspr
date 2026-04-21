@@ -73,9 +73,14 @@
 //
 // =============================================================================
 
+/// Character set flags for Phase 2 word generator (not yet implemented)
+#[allow(dead_code)]
 pub const LOWER:   u32 = 1 << 0;
+#[allow(dead_code)]
 pub const UPPER:   u32 = 1 << 1;
+#[allow(dead_code)]
 pub const DIGITS:  u32 = 1 << 2;
+#[allow(dead_code)]
 pub const SYMBOLS: u32 = 1 << 3;
 
 #[allow(dead_code)]

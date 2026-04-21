@@ -64,6 +64,8 @@ impl Progress {
         self.bar.finish_and_clear();
     }
 
+    /// Returns elapsed time since progress tracker was created. Currently unused but available for diagnostics.
+    #[allow(dead_code)]
     pub fn elapsed(&self) -> Duration {
         self.started.elapsed()
     }
