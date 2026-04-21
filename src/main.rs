@@ -51,7 +51,12 @@ struct Args {
     #[arg(short = 't', long = "threads", default_value_t = default_threads())]
     threads: usize,
 
-    /// Number of candidates per GPU dispatch (tune for your VRAM)
+    /// Number of candidates per GPU dispatch (multiples of 64 are optimal)
+    ///
+    /// Recommended sizes: 256, 512, 1024, 2048, 4096, 8192, 16384, 32768
+    /// Smaller (256-1K)   → lower latency, fit on any GPU
+    /// Larger  (4K-32K)   → higher throughput on high-VRAM GPUs
+    /// Max     (65536)    → limited by wgpu workgroup dispatch (65535 × 64)
     #[arg(long = "batch-size", default_value_t = 4096)]
     batch_size: usize,
 
